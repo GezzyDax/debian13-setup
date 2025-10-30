@@ -98,9 +98,48 @@ systemctl enable NetworkManager || true
 # Безопасность
 # ---------------------------------------------
 say "🔒 Установка и настройка безопасности..."
-apt install -y ufw fail2ban
+apt install -y ufw fail2ban openssh-server
+
+# Настройка UFW
+say "🧩 Настройка правил брандмауэра..."
+ufw --force reset
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow 22/tcp comment 'SSH'
+ufw allow 80/tcp comment 'HTTP'
+ufw allow 443/tcp comment 'HTTPS'
+ufw allow proto icmp comment 'Ping'
 ufw --force enable
+ufw status verbose
+
+# Настройка SSH и Fail2Ban
+say "🔐 Настройка SSH и Fail2Ban..."
+systemctl enable --now ssh
+systemctl restart ssh
+
+# Проверка, есть ли файл лога для fail2ban (auth.log)
+if [ ! -f /var/log/auth.log ]; then
+  touch /var/log/auth.log
+  chown syslog:adm /var/log/auth.log || true
+fi
+
+# Создание корректного jail.local, если отсутствует
+if [ ! -f /etc/fail2ban/jail.local ]; then
+  cat <<EOF >/etc/fail2ban/jail.local
+[DEFAULT]
+banaction = ufw
+backend = systemd
+ignoreip = 127.0.0.1/8 ::1
+
+[sshd]
+enabled = true
+port = 22
+logpath = /var/log/auth.log
+EOF
+fi
+
 systemctl enable fail2ban --now
+systemctl restart fail2ban
 
 # ---------------------------------------------
 # Fish shell
@@ -129,6 +168,8 @@ echo "Команды для проверки:"
 echo "  su - $USERNAME"
 echo "  echo \$PATH"
 echo "  sudo whoami"
+echo "  sudo ufw status verbose"
+echo "  sudo systemctl status fail2ban"
 echo
 echo -e "${BLUE}🎉 Debian 13 готов к работе!${RESET}"
 echo -e "${BLUE}=============================================${RESET}"
