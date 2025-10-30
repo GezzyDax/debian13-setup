@@ -108,7 +108,7 @@ ufw default allow outgoing
 ufw allow 22/tcp comment 'SSH'
 ufw allow 80/tcp comment 'HTTP'
 ufw allow 443/tcp comment 'HTTPS'
-ufw allow in proto icmp comment 'Ping'
+ufw allow in proto icmp comment 'Allow Ping (ICMP Echo Request)'
 ufw --force enable
 ufw status verbose
 
