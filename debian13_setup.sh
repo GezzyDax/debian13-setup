@@ -1,26 +1,23 @@
 #!/usr/bin/env bash
 # =========================================
-# Debian 13 (Trixie) Initial Setup Script
-# Автор: GezzyDax
+# Debian 13 (Trixie) Initial Setup Script (final)
+# Автор: gezzy
 # =========================================
-# Автоматическая базовая настройка Debian:
+# Безопасная и повторно запускаемая установка:
+#  - Создание пользователя и sudo
 #  - Обновление системы
-#  - Создание пользователя
-#  - Настройка sudo
-#  - Установка базовых утилит
 #  - Настройка UFW, SSH, Fail2Ban
-#  - Fish shell и PATH
+#  - Fish shell, PATH и базовые пакеты
 # =========================================
 
 set -e
 
-# ---------- Цвета ----------
 GREEN="\e[32m"; YELLOW="\e[33m"; RED="\e[31m"; BLUE="\e[34m"; RESET="\e[0m"
 say() { echo -e "${GREEN}==>${RESET} $1"; }
 warn() { echo -e "${YELLOW}⚠ ${RESET}$1"; }
 error() { echo -e "${RED}❌ ${RESET}$1"; }
 
-# ---------- Проверка root ----------
+# Проверка прав root
 if [ "$EUID" -ne 0 ]; then
   error "Запусти этот скрипт от root: sudo bash debian13_setup.sh"
   exit 1
@@ -32,11 +29,11 @@ echo -e "${BLUE}🧰 Debian 13 (Trixie) — базовая настройка${R
 echo -e "${BLUE}=============================================${RESET}"
 echo
 
-# ---------- Обновление apt ----------
+# ---------- Проверка apt ----------
 say "🔄 Проверяю систему..."
 apt update -y >/dev/null
 
-# ---------- sudo ----------
+# ---------- Установка sudo ----------
 if ! command -v sudo &>/dev/null; then
   say "🧰 Устанавливаю sudo..."
   apt install -y sudo
@@ -44,7 +41,7 @@ else
   say "✅ sudo уже установлен."
 fi
 
-# ---------- Создание пользователя ----------
+# ---------- Пользователь ----------
 read -rp "👤 Введите имя пользователя (например: user): " USERNAME
 if id "$USERNAME" &>/dev/null; then
   say "✅ Пользователь ${USERNAME} уже существует."
@@ -61,13 +58,10 @@ else
 fi
 
 # ---------- Настройка PATH ----------
-say "🧩 Настраиваю PATH..."
 PATH_LINE='export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games"'
-if ! grep -q "$PATH_LINE" /root/.bashrc 2>/dev/null; then
-  echo "$PATH_LINE" >> /root/.bashrc
-fi
-su - "$USERNAME" -c "grep -q '$PATH_LINE' ~/.bashrc || echo '$PATH_LINE' >> ~/.bashrc"
-
+say "🧩 Настраиваю PATH..."
+grep -qxF "$PATH_LINE" /root/.bashrc || echo "$PATH_LINE" >> /root/.bashrc
+su - "$USERNAME" -c "grep -qxF '$PATH_LINE' ~/.bashrc || echo '$PATH_LINE' >> ~/.bashrc"
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games"
 
 # ---------- Обновление системы ----------
@@ -77,56 +71,53 @@ apt autoremove --purge -y
 apt clean
 
 # ---------- Базовые пакеты ----------
-BASE_PACKAGES=(
+BASE_PKGS=(
   adduser passwd apt-utils man-db manpages bash-completion lsb-release
   procps psmisc net-tools iproute2 iputils-ping wget curl less vim nano tar
   gzip bzip2 xz-utils unzip coreutils findutils grep sed gawk file lsof gnu-which
 )
-
 say "⚙️ Установка базовых пакетов..."
-apt install -y "${BASE_PACKAGES[@]}"
+apt install -y "${BASE_PKGS[@]}"
 
-# ---------- Утилиты администратора ----------
-ADMIN_PACKAGES=(
+# ---------- Утилиты ----------
+ADMIN_PKGS=(
   htop btop ncdu rsync screen tmux cron ca-certificates gnupg locales tzdata
   neofetch git zip p7zip-full debconf debconf-utils software-properties-common
   apt-transport-https jq fzf ripgrep fd-find bat exa
 )
-
 say "🧱 Установка утилит администратора..."
-apt install -y "${ADMIN_PACKAGES[@]}"
+apt install -y "${ADMIN_PKGS[@]}"
 
 # ---------- Сеть ----------
-NETWORK_PACKAGES=(network-manager dnsutils traceroute nmap netcat-openbsd openssh-client)
+NET_PKGS=(network-manager dnsutils traceroute nmap netcat-openbsd openssh-client)
 say "🌐 Настройка сети..."
-apt install -y "${NETWORK_PACKAGES[@]}"
+apt install -y "${NET_PKGS[@]}"
 systemctl enable NetworkManager >/dev/null 2>&1 || true
 
 # ---------- Безопасность ----------
-SECURITY_PACKAGES=(ufw fail2ban openssh-server)
+SEC_PKGS=(ufw fail2ban openssh-server)
 say "🔒 Установка и настройка безопасности..."
-apt install -y "${SECURITY_PACKAGES[@]}"
+apt install -y "${SEC_PKGS[@]}"
 
-# ---------- Настройка UFW ----------
+# ---------- UFW ----------
 say "🧩 Настройка правил брандмауэра..."
 ufw --force reset >/dev/null
 ufw default deny incoming >/dev/null
 ufw default allow outgoing >/dev/null
 
-# Проверяем, открыты ли порты, прежде чем добавлять
 for PORT in 22 80 443; do
   if ! ufw status | grep -q "$PORT/tcp"; then
-    ufw allow ${PORT}/tcp comment "Port ${PORT}"
+    ufw allow "$PORT"/tcp comment "Allow port $PORT"
   fi
 done
 
-# Разрешаем пинг (icmp)
+# безопасный пинг: разрешаем входящие только если нет конфликта
 if ! ufw status | grep -q "proto icmp"; then
-  ufw allow in proto icmp comment 'Allow Ping (ICMP Echo Request)'
+  ufw allow in proto icmp from any to any comment 'Allow Ping (ICMP Echo Request)' >/dev/null 2>&1 || true
 fi
 
 ufw --force enable >/dev/null
-say "✅ Брандмауэр активен:"
+say "✅ Брандмауэр активен."
 ufw status verbose
 
 # ---------- SSH ----------
@@ -150,7 +141,6 @@ logpath = /var/log/auth.log
 EOF
 fi
 
-# Создаём auth.log, если его нет
 if [ ! -f /var/log/auth.log ]; then
   touch /var/log/auth.log
   chown syslog:adm /var/log/auth.log || true
@@ -160,24 +150,21 @@ systemctl enable fail2ban --now >/dev/null
 systemctl restart fail2ban >/dev/null
 systemctl is-active --quiet fail2ban && say "✅ Fail2Ban работает." || warn "⚠ Fail2Ban не запущен!"
 
-# ---------- Fish shell ----------
-say "🐚 Установка и настройка fish shell..."
+# ---------- Fish ----------
+say "🐚 Установка и настройка Fish..."
 if ! command -v fish &>/dev/null; then
   apt install -y fish
 fi
-
-CURRENT_SHELL=$(getent passwd "$USERNAME" | cut -d: -f7)
-if [ "$CURRENT_SHELL" != "/usr/bin/fish" ]; then
+USER_SHELL=$(getent passwd "$USERNAME" | cut -d: -f7)
+if [ "$USER_SHELL" != "/usr/bin/fish" ]; then
   chsh -s /usr/bin/fish "$USERNAME" || true
 fi
-
 su - "$USERNAME" -c 'fish -c "set -U fish_user_paths /usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin /bin /usr/games /usr/local/games"' || true
 
-# ---------- Финальный апгрейд ----------
+# ---------- Финал ----------
 say "🧩 Финальный апгрейд..."
 apt update && apt full-upgrade -y
 
-# ---------- Завершение ----------
 echo
 echo -e "${BLUE}=============================================${RESET}"
 echo -e "${GREEN}✅ Установка и настройка завершена!${RESET}"
@@ -191,5 +178,5 @@ echo "  sudo whoami"
 echo "  sudo ufw status verbose"
 echo "  sudo systemctl status fail2ban"
 echo
-echo -e "${BLUE}🎉 Debian 13 полностью готов к работе!${RESET}"
+echo -e "${BLUE}🎉 Debian 13 готов к работе!${RESET}"
 echo -e "${BLUE}=============================================${RESET}"
