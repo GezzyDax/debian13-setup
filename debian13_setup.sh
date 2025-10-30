@@ -146,7 +146,7 @@ fi
 
 if [ ! -f /var/log/auth.log ]; then
   touch /var/log/auth.log
-  chown syslog:adm /var/log/auth.log || true
+  chown --silent syslog:adm /var/log/auth.log 2>/dev/null || true
 fi
 
 systemctl enable fail2ban --now >/dev/null
