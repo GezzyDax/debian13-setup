@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # =========================================
-# Debian 13 (Trixie) Initial Setup Script (final clean)
+# Debian 13 (Trixie) Initial Setup Script (secure)
 # Автор: gezzy
 # =========================================
 # Безопасная и повторно запускаемая установка:
 #  - Создание пользователя и sudo
 #  - Обновление системы
-#  - Настройка UFW, SSH, Fail2Ban
-#  - Fish shell, PATH и базовые пакеты
+#  - Настройка UFW, SSH (только по ключу)
+#  - Fail2Ban, Fish shell, PATH и базовые пакеты
 # =========================================
 
 set -e
@@ -25,7 +25,7 @@ fi
 
 clear
 echo -e "${BLUE}=============================================${RESET}"
-echo -e "${BLUE}🧰 Debian 13 (Trixie) — базовая настройка${RESET}"
+echo -e "${BLUE}🧰 Debian 13 (Trixie) — базовая настройка (secure)${RESET}"
 echo -e "${BLUE}=============================================${RESET}"
 echo
 
@@ -124,9 +124,33 @@ say "✅ Брандмауэр активен."
 ufw status verbose
 
 # ---------- SSH ----------
-say "🔐 Настройка SSH..."
+say "🔐 Настройка SSH (только ключи, root-запрет)..."
 systemctl enable --now ssh >/dev/null
+
+# Запрос SSH-ключа
+echo
+read -rp "🔑 Вставь SSH public key для пользователя ${USERNAME}: " PUBKEY
+
+if [[ -n "$PUBKEY" ]]; then
+  su - "$USERNAME" -c "mkdir -p ~/.ssh && chmod 700 ~/.ssh"
+  echo "$PUBKEY" > "/home/$USERNAME/.ssh/authorized_keys"
+  chmod 600 "/home/$USERNAME/.ssh/authorized_keys"
+  chown -R "$USERNAME":"$USERNAME" "/home/$USERNAME/.ssh"
+  say "✅ Ключ добавлен в /home/$USERNAME/.ssh/authorized_keys"
+else
+  warn "⚠ Ключ не указан. SSH-доступ может быть невозможен."
+fi
+
+# Настройка sshd_config
+SSHD_CONFIG="/etc/ssh/sshd_config"
+cp "$SSHD_CONFIG" "${SSHD_CONFIG}.bak_$(date +%F_%T)"
+
+sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' "$SSHD_CONFIG"
+sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' "$SSHD_CONFIG"
+sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication yes/' "$SSHD_CONFIG"
+
 systemctl restart ssh >/dev/null
+say "✅ SSH настроен: вход только по ключу, root-доступ запрещён."
 
 # ---------- Fail2Ban ----------
 say "🧱 Настройка Fail2Ban..."
@@ -144,10 +168,8 @@ logpath = /var/log/auth.log
 EOF
 fi
 
-if [ ! -f /var/log/auth.log ]; then
-  touch /var/log/auth.log
-  chown --silent syslog:adm /var/log/auth.log 2>/dev/null || true
-fi
+touch /var/log/auth.log
+chown --silent syslog:adm /var/log/auth.log 2>/dev/null || true
 
 systemctl enable fail2ban --now >/dev/null
 systemctl restart fail2ban >/dev/null
@@ -172,14 +194,16 @@ echo
 echo -e "${BLUE}=============================================${RESET}"
 echo -e "${GREEN}✅ Установка и настройка завершена!${RESET}"
 echo
-echo -e "Теперь можно войти как пользователь: ${YELLOW}$USERNAME${RESET}"
+echo -e "Теперь можно входить только по ключу как: ${YELLOW}$USERNAME${RESET}"
 echo
 echo "Команды для проверки:"
 echo "  su - $USERNAME"
-echo "  echo \$PATH"
 echo "  sudo whoami"
 echo "  sudo ufw status verbose"
+echo "  sudo systemctl status ssh"
 echo "  sudo systemctl status fail2ban"
 echo
-echo -e "${BLUE}🎉 Debian 13 готов к работе!${RESET}"
+echo -e "${RED}⚠ Важно:${RESET} root-доступ по SSH отключён, парольный вход запрещён."
+echo
+echo -e "${BLUE}🎉 Debian 13 защищён и готов к работе!${RESET}"
 echo -e "${BLUE}=============================================${RESET}"
