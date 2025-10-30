@@ -41,8 +41,16 @@ else
   say "✅ sudo уже установлен."
 fi
 
-# ---------- Пользователь ----------
+# ---------- Создание пользователя ----------
 read -rp "👤 Введите имя пользователя (например: user): " USERNAME
+# удаляем все не ASCII символы
+USERNAME=$(echo "$USERNAME" | tr -cd '[:alnum:]_.@-')
+
+if [[ -z "$USERNAME" ]]; then
+  error "Некорректное имя пользователя. Допустимы только буквы, цифры, -, _, ., @"
+  exit 1
+fi
+
 if id "$USERNAME" &>/dev/null; then
   say "✅ Пользователь ${USERNAME} уже существует."
 else
@@ -50,12 +58,6 @@ else
   adduser --gecos "" "$USERNAME"
 fi
 
-if groups "$USERNAME" | grep -qw sudo; then
-  say "✅ ${USERNAME} уже в группе sudo."
-else
-  say "➕ Добавляю ${USERNAME} в группу sudo..."
-  usermod -aG sudo "$USERNAME"
-fi
 
 # ---------- Настройка PATH ----------
 PATH_LINE='export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games"'
