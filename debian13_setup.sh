@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =========================================
-# Debian 13 (Trixie) Initial Setup Script (final)
+# Debian 13 (Trixie) Initial Setup Script (final clean)
 # Автор: gezzy
 # =========================================
 # Безопасная и повторно запускаемая установка:
@@ -43,7 +43,6 @@ fi
 
 # ---------- Создание пользователя ----------
 read -rp "👤 Введите имя пользователя (например: user): " USERNAME
-# удаляем все не ASCII символы
 USERNAME=$(echo "$USERNAME" | tr -cd '[:alnum:]_.@-')
 
 if [[ -z "$USERNAME" ]]; then
@@ -58,6 +57,13 @@ else
   adduser --gecos "" "$USERNAME"
 fi
 
+# ---------- Добавляем пользователя в sudo ----------
+if groups "$USERNAME" | grep -qw sudo; then
+  say "✅ ${USERNAME} уже в группе sudo."
+else
+  say "➕ Добавляю ${USERNAME} в группу sudo..."
+  usermod -aG sudo "$USERNAME"
+fi
 
 # ---------- Настройка PATH ----------
 PATH_LINE='export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games"'
@@ -112,11 +118,6 @@ for PORT in 22 80 443; do
     ufw allow "$PORT"/tcp comment "Allow port $PORT"
   fi
 done
-
-# безопасный пинг: разрешаем входящие только если нет конфликта
-if ! ufw status | grep -q "proto icmp"; then
-  ufw allow in proto icmp from any to any comment 'Allow Ping (ICMP Echo Request)' >/dev/null 2>&1 || true
-fi
 
 ufw --force enable >/dev/null
 say "✅ Брандмауэр активен."
