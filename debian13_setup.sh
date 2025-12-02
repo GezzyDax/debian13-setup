@@ -41,6 +41,12 @@ else
   say "✅ sudo уже установлен."
 fi
 
+# ---------- Установка adduser ----------
+if ! command -v adduser &>/dev/null; then
+  say "🧰 Устанавливаю adduser..."
+  apt install -y adduser
+fi
+
 # ---------- Создание пользователя ----------
 read -rp "👤 Введите имя пользователя (например: user): " USERNAME
 USERNAME=$(echo "$USERNAME" | tr -cd '[:alnum:]_.@-')
