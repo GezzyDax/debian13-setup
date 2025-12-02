@@ -33,19 +33,9 @@ echo
 say "🔄 Проверяю систему..."
 apt update -y >/dev/null
 
-# ---------- Установка sudo ----------
-if ! command -v sudo &>/dev/null; then
-  say "🧰 Устанавливаю sudo..."
-  apt install -y sudo
-else
-  say "✅ sudo уже установлен."
-fi
-
-# ---------- Установка adduser ----------
-if ! command -v adduser &>/dev/null; then
-  say "🧰 Устанавливаю adduser..."
-  apt install -y adduser
-fi
+# ---------- Установка sudo и adduser ----------
+say "🧰 Устанавливаю необходимые пакеты (sudo, adduser)..."
+apt install -y sudo adduser
 
 # ---------- Создание пользователя ----------
 read -rp "👤 Введите имя пользователя (например: user): " USERNAME
