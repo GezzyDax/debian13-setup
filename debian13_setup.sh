@@ -12,6 +12,9 @@
 
 set -e
 
+# Устанавливаем полный PATH для доступа ко всем системным утилитам
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 GREEN="\e[32m"; YELLOW="\e[33m"; RED="\e[31m"; BLUE="\e[34m"; RESET="\e[0m"
 say() { echo -e "${GREEN}==>${RESET} $1"; }
 warn() { echo -e "${YELLOW}⚠ ${RESET}$1"; }
@@ -50,7 +53,7 @@ if id "$USERNAME" &>/dev/null; then
   say "✅ Пользователь ${USERNAME} уже существует."
 else
   say "👤 Создаю пользователя ${USERNAME}..."
-  adduser --gecos "" "$USERNAME"
+  /usr/sbin/adduser --gecos "" "$USERNAME"
 fi
 
 # ---------- Добавляем пользователя в sudo ----------
