@@ -89,8 +89,8 @@ apt install -y "${BASE_PKGS[@]}"
 # ---------- Утилиты ----------
 ADMIN_PKGS=(
   htop btop ncdu rsync screen tmux cron ca-certificates gnupg locales tzdata
-  neofetch git zip p7zip-full debconf debconf-utils software-properties-common
-  apt-transport-https jq fzf ripgrep fd-find bat exa
+  fastfetch git zip p7zip-full debconf debconf-utils
+  apt-transport-https jq fzf ripgrep fd-find bat eza
 )
 say "🧱 Установка утилит администратора..."
 apt install -y "${ADMIN_PKGS[@]}"
